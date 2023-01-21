@@ -153,7 +153,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
             base_confidence += 20
         internet_words = self.resources.load_vocabulary_file("internet")
         radio_words = self.resources.load_vocabulary_file("radio")
-        phrase = " ".join((word for word in phrase
+        phrase = " ".join((word for word in phrase.split()
                            if word not in [*internet_words, *radio_words]))
 
         matches = self._get_candidate_matches(candidates,
