@@ -58,24 +58,12 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         self._image_url = join(dirname(__file__), 'ui/radio-solid.svg')
         self._max_results = 50
         self._init_event = Event()
+        self._init_event.clear()
 
     @property
     def host_url(self) -> str:
-        timeout = time() + 5
-        while not self._host_url and time() < timeout:
-            LOG.info("Selecting Candidate")
-            candidate = self._candidate_hosts[0]
-            LOG.info(f"Testing {candidate}")
-            try:
-                if requests.get(candidate, timeout=2, headers=self._headers).ok:
-                    LOG.info(f"Candidate ok: {candidate}")
-                    self._host_url = candidate
-                else:
-                    LOG.warning(f"Removing broken host: {candidate}")
-                    self._candidate_hosts.remove(candidate)
-            except TimeoutError:
-                LOG.warning(f"{candidate} timed out")
-                self._candidate_hosts.remove(candidate)
+        if not self._init_event.wait(30):
+            LOG.error("Skill Not initialized after 30 seconds")
         return self._host_url
 
     @property
@@ -88,46 +76,55 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
 
     @property
     def stations(self) -> List[dict]:
-        if not self._host_url:
-            LOG.info(f"Initializing Host URL")
-            LOG.info(self.host_url)
-        timeout = time() + 30
-        while not self._stations and time() < timeout:
-            try:
-                LOG.info("Updating stations list")
-                resp = requests.get(f"{self.host_url}/json/stations",
-                                    timeout=5, headers=self._headers,
-                                    verify=False)
-                if resp.ok:
-                    stations = resp.json()
-                else:
-                    LOG.info(f"Request returned: {resp.status_code}")
-                    stations = None
-                if stations and self._validate_stations(stations):
-                    self._stations = stations
-                    LOG.info(f"Found {len(self._stations)} stations")
-                else:
-                    LOG.error(f"Broken stations listing retrieved, try again")
-                    self._stations = None
-                    self._candidate_hosts.remove(self.host_url)
-                    self._host_url = None
-            except Exception as e:
-                LOG.exception(e)
-                self._candidate_hosts.remove(self.host_url)
-                self._host_url = None
-        if not self._stations and time() > timeout:
-            raise TimeoutError("Timed out getting stations listing!")
+        if not self._init_event.wait(30):
+            LOG.error("Skill Not initialized after 30 seconds")
         return self._stations
 
     def initialize(self):
         Thread(target=self._init_stations, daemon=True).start()
 
     def _init_stations(self):
-        try:
-            stations = self.stations
-            LOG.info(f"Found {len(stations)} stations")
-        except TimeoutError:
-            LOG.error(f"Timed out updating stations")
+        """
+        Perform one-time init to get station information
+        """
+        timeout = time() + 300
+        while not self._stations and time() < timeout:
+            # Validate host_url connects at all
+            while not self._host_url:
+                LOG.info("Selecting Candidate")
+                candidate = self._candidate_hosts[0]
+                LOG.info(f"Testing {candidate}")
+                try:
+                    if requests.get(candidate, timeout=2,
+                                    headers=self._headers).ok:
+                        LOG.info(f"Candidate ok: {candidate}")
+                        self._host_url = candidate
+                    else:
+                        LOG.warning(f"Removing broken host: {candidate}")
+                        self._candidate_hosts.remove(candidate)
+                except TimeoutError:
+                    LOG.warning(f"{candidate} timed out")
+                    self._candidate_hosts.remove(candidate)
+
+            LOG.info("Updating stations list")
+            resp = requests.get(f"{self._host_url}/json/stations",
+                                timeout=5, headers=self._headers,
+                                verify=False)
+            if resp.ok:
+                stations = resp.json()
+            else:
+                LOG.info(f"Request returned: {resp.status_code}")
+                stations = None
+            if stations and self._validate_stations(stations):
+                self._stations = stations
+                LOG.info(f"Found {len(self._stations)} stations")
+            else:
+                LOG.error(f"Broken stations listing retrieved, try again")
+                self._stations = None
+                self._candidate_hosts.remove(self._host_url)
+                self._host_url = None
+        if not self._stations:
+            LOG.error("Unable to update stations")
         self._init_event.set()
 
     @staticmethod
