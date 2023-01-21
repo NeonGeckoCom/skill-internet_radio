@@ -25,11 +25,10 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-import re
-from threading import Thread, Event
 
 import requests
 
+from threading import Thread, Event
 from os.path import join, dirname
 from time import time
 from typing import List
@@ -57,14 +56,13 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         self._stations = None
         self._image_url = join(dirname(__file__), 'ui/radio-solid.svg')
         self._max_results = 50
-        self._init_event = Event()
-        self._init_event.clear()
+        self._station_init = Event()
 
     @property
     def host_url(self) -> str:
-        if not self._init_event.wait(30):
+        if not self._station_init.wait(30):
             LOG.error("Skill Not initialized after 30 seconds")
-        return self._host_url
+        return self._host_url or ""
 
     @property
     def country_code(self) -> str:
@@ -76,9 +74,9 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
 
     @property
     def stations(self) -> List[dict]:
-        if not self._init_event.wait(30):
+        if not self._station_init.wait(30):
             LOG.error("Skill Not initialized after 30 seconds")
-        return self._stations
+        return self._stations or []
 
     def initialize(self):
         Thread(target=self._init_stations, daemon=True).start()
@@ -87,7 +85,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         """
         Perform one-time init to get station information
         """
-        timeout = time() + 300
+        timeout = time() + 30
         while not self._stations and time() < timeout:
             # Validate host_url connects at all
             while not self._host_url:
@@ -107,25 +105,36 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
                     self._candidate_hosts.remove(candidate)
 
             LOG.info("Updating stations list")
-            resp = requests.get(f"{self._host_url}/json/stations",
-                                timeout=5, headers=self._headers,
-                                verify=False)
-            if resp.ok:
-                stations = resp.json()
-            else:
-                LOG.info(f"Request returned: {resp.status_code}")
-                stations = None
-            if stations and self._validate_stations(stations):
-                self._stations = stations
-                LOG.info(f"Found {len(self._stations)} stations")
-            else:
-                LOG.error(f"Broken stations listing retrieved, try again")
-                self._stations = None
+            try:
+                resp = requests.get(f"{self._host_url}/json/stations",
+                                    timeout=1, headers=self._headers,
+                                    stream=True)
+                if resp.ok:
+                    stations = resp.json()
+                else:
+                    LOG.info(f"Request returned: {resp.status_code}")
+                    stations = None
+                if stations and self._validate_stations(stations):
+                    self._stations = stations
+                    LOG.info(f"Found {len(self._stations)} stations")
+                else:
+                    LOG.error(f"Broken stations listing retrieved, try again")
+                    self._stations = None
+                    self._candidate_hosts.remove(self._host_url)
+                    self._host_url = None
+            except (TimeoutError, ConnectionError):
+                LOG.warning(f"{self._host_url} timed out")
                 self._candidate_hosts.remove(self._host_url)
                 self._host_url = None
+            except Exception as e:
+                LOG.error(e)
+                self._candidate_hosts.remove(self._host_url)
+                self._host_url = None
+
         if not self._stations:
             LOG.error("Unable to update stations")
-        self._init_event.set()
+        LOG.info(f"Init Done, setting event")
+        self._station_init.set()
 
     @staticmethod
     def _validate_stations(stations: list):
@@ -155,7 +164,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         phrase = " ".join((word for word in phrase.split()
                            if word not in [*internet_words, *radio_words]))
 
-        self._init_event.wait(10)
+        self._station_init.wait(10)
         matches = self._get_candidate_matches(candidates,
                                               phrase, base_confidence)
         if len(matches) > self._max_results:

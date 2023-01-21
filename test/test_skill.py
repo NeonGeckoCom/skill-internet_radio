@@ -59,8 +59,6 @@ class TestSkill(unittest.TestCase):
         cls.skill.file_system.path = cls.test_fs
         cls.skill._init_settings()
 
-        cls.skill.initialize()
-
         # Override speak and speak_dialog to test passed arguments
         cls.skill.speak = Mock()
         cls.skill.speak_dialog = Mock()
@@ -110,6 +108,7 @@ class TestSkill(unittest.TestCase):
 
     def test_get_candidate_matches(self):
         us_stations = self.skill._get_local_stations('en', 'US')
+        self.assertTrue(self.skill._station_init.is_set())
         phrase = "rock music"
         candidates = self.skill._get_candidate_matches(us_stations, phrase,
                                                        base_confidence=40)
