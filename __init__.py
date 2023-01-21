@@ -26,7 +26,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import re
-from threading import Thread
+from threading import Thread, Event
 
 import requests
 
@@ -57,6 +57,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         self._stations = None
         self._image_url = join(dirname(__file__), 'ui/radio-solid.svg')
         self._max_results = 50
+        self._init_event = Event()
 
     @property
     def host_url(self) -> str:
@@ -127,6 +128,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
             LOG.info(f"Found {len(stations)} stations")
         except TimeoutError:
             LOG.error(f"Timed out updating stations")
+        self._init_event.set()
 
     @staticmethod
     def _validate_stations(stations: list):
@@ -156,6 +158,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         phrase = " ".join((word for word in phrase.split()
                            if word not in [*internet_words, *radio_words]))
 
+        self._init_event.wait(10)
         matches = self._get_candidate_matches(candidates,
                                               phrase, base_confidence)
         if len(matches) > self._max_results:
