@@ -143,7 +143,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
 
         lang_params = self.parse_request_locale(phrase)
         candidates = self._get_local_stations(**lang_params)
-        if self.voc_match("internet"):
+        if self.voc_match(phrase, "internet"):
             base_confidence += 20
         matches = self._get_candidate_matches(candidates,
                                               phrase, base_confidence)
