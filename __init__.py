@@ -109,10 +109,18 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
                     self._host_url = None
             except Exception as e:
                 LOG.exception(e)
+                self._candidate_hosts.remove(self.host_url)
                 self._host_url = None
         if not self._stations and time() > timeout:
             raise TimeoutError("Timed out getting stations listing!")
         return self._stations
+
+    def initialize(self):
+        try:
+            stations = self.stations
+            LOG.info(f"Found {len(stations)} stations")
+        except TimeoutError:
+            LOG.error(f"Timed out updating stations")
 
     @staticmethod
     def _validate_stations(stations: list):
@@ -135,10 +143,12 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
 
         lang_params = self.parse_request_locale(phrase)
         candidates = self._get_local_stations(**lang_params)
-        # TODO: voc match for "radio" to update confidence
+        if self.voc_match("internet"):
+            base_confidence += 20
         matches = self._get_candidate_matches(candidates,
                                               phrase, base_confidence)
-
+        if len(matches) > self._max_results:
+            matches = matches[:self._max_results]
         return matches
 
     def _get_candidate_matches(self, candidates: List[dict], phrase: str,
