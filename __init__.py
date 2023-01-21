@@ -94,7 +94,8 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
                 LOG.info(f"Testing {candidate}")
                 try:
                     if requests.get(candidate, timeout=2,
-                                    headers=self._headers).ok:
+                                    headers=self._headers,
+                                    stream=True).ok:
                         LOG.info(f"Candidate ok: {candidate}")
                         self._host_url = candidate
                     else:
