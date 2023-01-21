@@ -25,6 +25,8 @@
 # LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE,  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+import re
+from threading import Thread
 
 import requests
 
@@ -93,7 +95,8 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
             try:
                 LOG.info("Updating stations list")
                 resp = requests.get(f"{self.host_url}/json/stations",
-                                    timeout=(3, 3), headers=self._headers)
+                                    timeout=5, headers=self._headers,
+                                    verify=False)
                 if resp.ok:
                     stations = resp.json()
                 else:
@@ -116,6 +119,9 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         return self._stations
 
     def initialize(self):
+        Thread(target=self._init_stations, daemon=True).start()
+
+    def _init_stations(self):
         try:
             stations = self.stations
             LOG.info(f"Found {len(stations)} stations")
@@ -134,7 +140,7 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
     @ocp_search()
     def search_music(self, phrase, media_type=MediaType.GENERIC):
         base_confidence = 0
-        if media_type == MediaType.RADIO:
+        if media_type == MediaType.RADIO or self.voc_match(phrase, "radio"):
             base_confidence += 50
         elif media_type == MediaType.MUSIC:
             base_confidence += 40
@@ -145,6 +151,11 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         candidates = self._get_local_stations(**lang_params)
         if self.voc_match(phrase, "internet"):
             base_confidence += 20
+        internet_words = self.resources.load_vocabulary_file("internet")
+        radio_words = self.resources.load_vocabulary_file("radio")
+        phrase = " ".join((word for word in phrase
+                           if word not in [*internet_words, *radio_words]))
+
         matches = self._get_candidate_matches(candidates,
                                               phrase, base_confidence)
         if len(matches) > self._max_results:
