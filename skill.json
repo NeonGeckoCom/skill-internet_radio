@@ -1,0 +1,51 @@
+{
+    "title": "Internet Radio",
+    "url": "https://github.com/NeonGeckoCom/skill-internet_radio",
+    "summary": "[OCP](https://github.com/OpenVoiceOS/ovos-ocp-audio-plugin) skill to play media from the internet.",
+    "short_description": "[OCP](https://github.com/OpenVoiceOS/ovos-ocp-audio-plugin) skill to play media from the internet.",
+    "description": "Uses the [pyradios](https://pypi.org/project/pyradios/) package to find and play internet radio stations.",
+    "examples": [
+        "Play internet radio."
+    ],
+    "desktopFile": false,
+    "warning": "",
+    "systemDeps": false,
+    "requirements": {
+        "python": [
+            "ovos-plugin-common-play~=0.0",
+            "ovos-workshop~=0.0.7",
+            "pyradios~=1.0"
+        ],
+        "system": {},
+        "skill": []
+    },
+    "incompatible_skills": [],
+    "platforms": [
+        "i386",
+        "x86_64",
+        "ia64",
+        "arm64",
+        "arm"
+    ],
+    "branch": "master",
+    "license": "BSD-3-Clause",
+    "icon": "ui/radio-solid.svg",
+    "category": "Music",
+    "categories": [
+        "Music"
+    ],
+    "tags": [
+        "music",
+        "NeonAI",
+        "NeonGecko Original",
+        "OCP",
+        "Common Play"
+    ],
+    "credits": [
+        "NeonGeckoCom",
+        "NeonDaniel"
+    ],
+    "skillname": "skill-internet_radio",
+    "authorname": "NeonGeckoCom",
+    "foldername": null
+}
