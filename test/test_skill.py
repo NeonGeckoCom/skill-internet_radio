@@ -122,6 +122,14 @@ class TestSkill(unittest.TestCase):
         self.assertEqual(candidates[0]['title'], "102.5 JACKFM")
         pprint(candidates)
 
+    def test_search_term_from_phrase(self):
+        phrase = "lo-fi radio"
+        self.assertEqual(self.skill._search_term_from_phrase(phrase), "lo-fi")
+        phrase = "Beatles internet radio"
+        self.assertEqual(self.skill._search_term_from_phrase(phrase), "Beatles")
+        phrase = "internet radio"
+        self.assertEqual(self.skill._search_term_from_phrase(phrase), "")
+
 
 if __name__ == '__main__':
     pytest.main()

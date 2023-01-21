@@ -159,10 +159,8 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         candidates = self._get_local_stations(**lang_params)
         if self.voc_match(phrase, "internet"):
             base_confidence += 20
-        internet_words = self.resources.load_vocabulary_file("internet")
-        radio_words = self.resources.load_vocabulary_file("radio")
-        phrase = " ".join((word for word in phrase.split()
-                           if word not in [*internet_words, *radio_words]))
+
+        phrase = self._search_term_from_phrase(phrase) or phrase
 
         self._station_init.wait(10)
         matches = self._get_candidate_matches(candidates,
@@ -170,6 +168,14 @@ class InternetRadioSkill(OVOSCommonPlaybackSkill):
         if len(matches) > self._max_results:
             matches = matches[:self._max_results]
         return matches
+
+    def _search_term_from_phrase(self, phrase) -> str:
+        internet_words = [word[0] for word in
+                          self.resources.load_vocabulary_file("internet")]
+        radio_words = [word[0] for word in
+                       self.resources.load_vocabulary_file("radio")]
+        return " ".join((word for word in phrase.split()
+                         if word not in [*internet_words, *radio_words]))
 
     def _get_candidate_matches(self, candidates: List[dict], phrase: str,
                                base_confidence: int = 0):
